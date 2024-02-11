@@ -1,0 +1,26 @@
+const sqlite3 = require('sqlite3').verbose();
+
+// Crea un database nel file 'database.db'
+let db = new sqlite3.Database('database.db');
+
+// Esegui una query SQL per creare una tabella
+db.run('CREATE TABLE IF NOT EXISTS users (id INT, name TEXT)');
+
+// Inserisci dati nella tabella
+db.run('INSERT INTO users (id, name) VALUES (?, ?)', [1, 'John Doe'], function(err) {
+    if (err) {
+        return console.error(err.message);
+    }
+    console.log('Nuovo record inserito con ID', this.lastID);
+});
+
+// Seleziona dati dalla tabella
+db.each('SELECT id, name FROM users', function(err, row) {
+    if (err) {
+        return console.error(err.message);
+    }
+    console.log(row.id, row.name);
+});
+
+// Chiudi il database quando hai finito
+db.close();

@@ -5,6 +5,49 @@ const server = http.createServer(app);
 const path = require("path");
 const bodyParser = require("body-parser");
 const data = [];
+const sqlite3 = require("sqlite3").verbose();
+/*
+const recuperaData = () => {
+  const db = new sqlite3.Database("eventi.db");
+  db.run(
+    "CREATE TABLE IF NOT EXISTS eventi (titolo TEXT, descrizione TEXT, dataora TEXT, completato INTEGER)",
+  );
+  // Seleziona dati dalla tabella
+  db.each(
+    "SELECT titolo, descrizione, dataora,completato FROM eventi",
+    function (err, row) {
+      if (err) {
+        return console.error(err.message);
+      }
+      console.log("ciao");
+      console.log(row);
+    },
+  );
+  db.close();
+};
+*/
+const salvaData = (element) => {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database("eventi.db");
+    db.run(
+      "CREATE TABLE IF NOT EXISTS eventi (titolo TEXT, descrizione TEXT, dataora TEXT, completato INTEGER)",
+    );
+    const completatoValue = element.completato ? 1 : 0;
+    db.run(
+      "INSERT INTO eventi (titolo, descrizione,dataora,completato) VALUES (?, ?,?,?)",
+      [element.titolo, element.descrizione, element.dataora, completatoValue],
+      function (err) {
+        if (err) {
+          return console.error(err.message);
+        }
+        console.log("ok");
+        resolve("ok");
+      },
+    );
+    db.close();
+  });
+};
+
 app.use("/", express.static(path.join(__dirname, "public")));
 app.use(bodyParser.json());
 app.use(
@@ -32,7 +75,12 @@ app.post("/aggiungiEvento", (request, response) => {
         dataora: dataora,
         completato: false,
       });
-      response.json({ result: "ok" });
+      salvaData({
+        titolo: titolo,
+        descrizione: descrizione,
+        dataora: dataora,
+        completato: false,
+      }).then((res) => response.json({ result: "ok" }));
     } else {
       response.json({ result: "element already exist" });
     }
