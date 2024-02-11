@@ -6,26 +6,25 @@ const path = require("path");
 const bodyParser = require("body-parser");
 const data = [];
 const sqlite3 = require("sqlite3").verbose();
-/*
+
 const recuperaData = () => {
-  const db = new sqlite3.Database("eventi.db");
-  db.run(
-    "CREATE TABLE IF NOT EXISTS eventi (titolo TEXT, descrizione TEXT, dataora TEXT, completato INTEGER)",
-  );
-  // Seleziona dati dalla tabella
-  db.each(
-    "SELECT titolo, descrizione, dataora,completato FROM eventi",
-    function (err, row) {
-      if (err) {
-        return console.error(err.message);
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database("eventi.db");
+    // Seleziona dati dalla tabella
+    db.all(
+      "SELECT titolo, descrizione, dataora, completato FROM eventi",
+      function (err, rows) {
+        if (err) {
+          reject(err);
+          return console.error(err.message);
+        }
+        resolve(rows);
       }
-      console.log("ciao");
-      console.log(row);
-    },
-  );
-  db.close();
+    );
+    db.close();
+  });
 };
-*/
+
 const salvaData = (element) => {
   return new Promise((resolve, reject) => {
     const db = new sqlite3.Database("eventi.db");
@@ -34,15 +33,16 @@ const salvaData = (element) => {
     );
     const completatoValue = element.completato ? 1 : 0;
     db.run(
-      "INSERT INTO eventi (titolo, descrizione,dataora,completato) VALUES (?, ?,?,?)",
+      "INSERT INTO eventi (titolo, descrizione, dataora, completato) VALUES (?, ?, ?, ?)",
       [element.titolo, element.descrizione, element.dataora, completatoValue],
       function (err) {
         if (err) {
+          reject(err);
           return console.error(err.message);
         }
         console.log("ok");
         resolve("ok");
-      },
+      }
     );
     db.close();
   });
@@ -53,19 +53,16 @@ app.use(bodyParser.json());
 app.use(
   bodyParser.urlencoded({
     extended: true,
-  }),
+  })
 );
-app.post("/aggiungiEvento", (request, response) => {
+
+app.post("/aggiungiEvento", async (request, response) => {
   if (request.body) {
     const { titolo, descrizione, dataora } = request.body;
     let trovato = false;
     data.forEach((element) => {
-      if (element.titolo === titolo) {
-        if (element.descrizione === descrizione) {
-          if (element.dataora === dataora) {
-            trovato = true;
-          }
-        }
+      if (element.titolo === titolo && element.descrizione === descrizione && element.dataora === dataora) {
+        trovato = true;
       }
     });
     if (!trovato) {
@@ -75,12 +72,17 @@ app.post("/aggiungiEvento", (request, response) => {
         dataora: dataora,
         completato: false,
       });
-      salvaData({
-        titolo: titolo,
-        descrizione: descrizione,
-        dataora: dataora,
-        completato: false,
-      }).then((res) => response.json({ result: "ok" }));
+      try {
+        await salvaData({
+          titolo: titolo,
+          descrizione: descrizione,
+          dataora: dataora,
+          completato: false,
+        });
+        response.json({ result: "ok" });
+      } catch (error) {
+        response.json({ result: "error", message: error.message });
+      }
     } else {
       response.json({ result: "element already exist" });
     }
@@ -92,11 +94,7 @@ app.post("/aggiungiEvento", (request, response) => {
 app.put("/confermaEvento", (request, response) => {
   const evento = request.body.evento;
   data.forEach((event) => {
-    if (
-      event.titolo === evento.titolo &&
-      evento.descrizione === event.descrizione &&
-      evento.dataora === event.dataora
-    ) {
+    if (event.titolo === evento.titolo && event.descrizione === evento.descrizione && event.dataora === evento.dataora) {
       event.completato = true;
       response.json({ result: "ok" });
     }
@@ -118,8 +116,13 @@ app.delete("/eliminaEvento/:titolo", (request, response) => {
   response.json({ result: "ok" });
 });
 
-app.post("/recuperaEventi", (request, response) => {
-  response.json({ result: data });
+app.post("/recuperaEventi", async (request, response) => {
+  try {
+    const eventData = await recuperaData();
+    response.json({ result: eventData });
+  } catch (error) {
+    response.json({ result: "error", message: error.message });
+  }
 });
 
 server.listen(80, () => {
